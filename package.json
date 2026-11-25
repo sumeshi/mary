@@ -1,0 +1,22 @@
+{
+  "name": "mary",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "On-device real-time English captions with optional Japanese translation",
+  "scripts": {
+    "sync:moonshine": "node scripts/sync-moonshine.mjs",
+    "dev": "npm run sync:moonshine && vite",
+    "build": "npm run sync:moonshine && tsc --noEmit && vite build",
+    "preview": "vite preview --host"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "4.3.2",
+    "@moonshine-ai/moonshine-wasm": "0.1.6"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.3",
+    "vite": "^8.3.8",
+    "vite-plugin-pwa": "^2.0.0"
+  }
+}
