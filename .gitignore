@@ -160,6 +160,9 @@ vite.config.ts.timestamp-*
 public/moonshine/
 public/ort/
 
+# Local planning notes
+GOAL.md
+
 # Local tooling
 .serena/
 .DS_Store
