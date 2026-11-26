@@ -92,6 +92,7 @@ function load(): Promise<TranslationPipeline> {
   post({ type: 'state', state: 'loading' });
   loadPromise = pipeline('translation', TRANSLATION_MODEL_ID, {
     dtype: 'q8',
+    device: 'wasm',
     progress_callback: reportProgress,
   }).then(
     (created) => {

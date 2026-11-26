@@ -24,8 +24,6 @@ async function copyOrt() {
   for (const file of [
     'ort-wasm-simd-threaded.mjs',
     'ort-wasm-simd-threaded.wasm',
-    'ort-wasm-simd-threaded.jsep.mjs',
-    'ort-wasm-simd-threaded.jsep.wasm',
   ]) {
     await cp(join(ortSource, file), join(ortTarget, file));
   }

@@ -10,7 +10,6 @@ import {
 } from '../models';
 import type { AsrModelInfo, ModelFile } from '../models';
 import type { AsrModelId, DownloadProgress, ModelStatus } from '../types';
-import { ortWasmSuffix } from '../platform/ort';
 
 const MOONSHINE_MODEL_PREFIX = 'https://download.moonshine.ai/model/';
 
@@ -383,9 +382,8 @@ async function isCachedIn(cacheName: string, url: string): Promise<boolean> {
  * have cached the pair itself, so accept either copy.
  */
 export async function isTranslationRuntimeCached(): Promise<boolean> {
-  const suffix = ortWasmSuffix();
-  const wasmUrl = publicUrl(`ort/ort-wasm-simd-threaded${suffix}.wasm`);
-  const loaderUrl = publicUrl(`ort/ort-wasm-simd-threaded${suffix}.mjs`);
+  const wasmUrl = publicUrl('ort/ort-wasm-simd-threaded.wasm');
+  const loaderUrl = publicUrl('ort/ort-wasm-simd-threaded.mjs');
 
   const wasmReady =
     (await isCachedIn(RUNTIME_CACHE, wasmUrl)) || (await isCachedIn(TRANSFORMERS_CACHE, wasmUrl));
