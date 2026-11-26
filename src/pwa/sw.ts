@@ -12,6 +12,7 @@ declare const self: ServiceWorkerGlobalScope & {
 };
 
 const INDEX_URL = new URL('index.html', self.registration.scope).href;
+const NOTICES_URL = new URL('THIRD_PARTY_NOTICES.txt', self.registration.scope).href;
 const ORT_PREFIX = new URL('ort/', self.registration.scope).pathname;
 
 function isScriptRequest(request: Request): boolean {
@@ -58,6 +59,12 @@ async function openRuntimeCache(): Promise<Cache | null> {
 
 async function handleNavigation(request: Request): Promise<Response> {
   const cached = await matchPrecache(INDEX_URL);
+  if (cached) return withIsolationHeaders(cached);
+  return withIsolationHeaders(await fetch(request));
+}
+
+async function handleNotices(request: Request): Promise<Response> {
+  const cached = await matchPrecache(NOTICES_URL);
   if (cached) return withIsolationHeaders(cached);
   return withIsolationHeaders(await fetch(request));
 }
@@ -122,7 +129,9 @@ function handleFetch(event: FetchEvent): void {
   if (!navigation && !ort && !script) return;
 
   let response: Promise<Response>;
-  if (navigation) {
+  if (navigation && url.href === NOTICES_URL) {
+    response = handleNotices(request);
+  } else if (navigation) {
     response = handleNavigation(request);
   } else if (ort) {
     response = handleOrt(event, request);

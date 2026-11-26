@@ -78,7 +78,7 @@ export default defineConfig({
       },
       injectManifest: {
         globPatterns: [
-          '**/*.{js,mjs,css,html,svg,png,ico,webmanifest}',
+          '**/*.{js,mjs,css,html,svg,png,ico,webmanifest,txt}',
           'moonshine/*.{js,mjs,wasm}',
         ],
         maximumFileSizeToCacheInBytes: 20 * 1024 * 1024,

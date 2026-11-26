@@ -76,6 +76,8 @@ Cross-Origin-Embedder-Policy: require-corp
 - Translation: `Xenova/m2m100_418M`, a quantized ONNX conversion of Facebook's M2M100 (MIT).
 - Runtime: ONNX Runtime Web (MIT), Transformers.js (Apache-2.0), Moonshine WASM binding (MIT).
 
+Third-party copyright notices and license texts are included in the app under **Settings → About → Third-party notices** and are served as `THIRD_PARTY_NOTICES.txt`.
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

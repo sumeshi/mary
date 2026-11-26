@@ -312,6 +312,9 @@ function buildSettingsMarkup(): string {
               <a href="https://huggingface.co/docs/transformers.js/" target="_blank" rel="noopener noreferrer">Transformers.js</a>
               with the <span class="mary-model-summary__name">${TRANSLATION_MODEL_ID}</span> model.
             </p>
+            <p class="mary-settings__note">
+              <a href="${import.meta.env.BASE_URL}THIRD_PARTY_NOTICES.txt" target="_blank" rel="noopener noreferrer">Third-party notices</a>
+            </p>
             <p class="mary-version">Version ${APP_VERSION}</p>
           </section>
         </div>
