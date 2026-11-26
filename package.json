@@ -6,8 +6,8 @@
   "description": "On-device real-time English captions with optional Japanese translation",
   "scripts": {
     "sync:moonshine": "node scripts/sync-moonshine.mjs",
-    "dev": "npm run sync:moonshine && vite",
-    "build": "npm run sync:moonshine && tsc --noEmit && vite build",
+    "dev": "node scripts/sync-moonshine.mjs && vite",
+    "build": "node scripts/sync-moonshine.mjs && tsc --noEmit && vite build",
     "preview": "vite preview --host"
   },
   "dependencies": {

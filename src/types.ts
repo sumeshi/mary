@@ -64,6 +64,8 @@ export interface AppState {
 
 export interface UIActions {
   toggleListening(): void;
+  copyCaptions(): void;
+  saveCaptions(): void;
   setTranslationEnabled(enabled: boolean): void;
   updateSettings(patch: Partial<Settings>): void;
   downloadAsrModel(id: AsrModelId): void;

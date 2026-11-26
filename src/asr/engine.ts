@@ -141,7 +141,7 @@ export class SpeechEngine {
 
       this.handlers.onPartial(null);
       this.handlers.onProgress(null);
-      throw error instanceof Error ? error : new Error(errorMessage(error));
+      throw new Error(errorMessage(error));
     }
   }
 
@@ -152,16 +152,18 @@ export class SpeechEngine {
     const session = this.session;
     this.session = null;
     this.active = false;
-    const disposal = this.dispose(session);
 
+    // Return to idle before teardown so the control is usable immediately.
+    // start() waits for the disposal itself.
     this.handlers.onProgress(null);
+    this.handlers.onPartial(null);
+    this.handlers.onState('idle', null);
 
     try {
-      await disposal;
+      await this.dispose(session);
     } finally {
       this.handlers.onPartial(null);
       this.handlers.onProgress(null);
-      this.handlers.onState('idle', null);
     }
   }
 
@@ -333,6 +335,11 @@ async function loadSdk(): Promise<typeof import('@moonshine-ai/moonshine-wasm')>
 }
 
 function errorMessage(error: unknown): string {
-  if (error instanceof Error && error.message) return error.message;
+  if (error instanceof Error && error.message) {
+    if (/fetch|network|load failed/i.test(error.message)) {
+      return 'Could not load the speech model. Check your connection and try again.';
+    }
+    return error.message;
+  }
   return 'Speech recognition could not start.';
 }

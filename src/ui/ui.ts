@@ -21,6 +21,7 @@ import type {
   UIActions,
 } from '../types';
 import { maryIcons as icons } from './icons';
+import { VoiceRope, type VoiceState } from './voice';
 
 const MAX_RENDERED_LINES = 500;
 const PIN_THRESHOLD_PX = 80;
@@ -50,6 +51,15 @@ function query<T extends Element>(parent: ParentNode, selector: string): T {
   const element = parent.querySelector<T>(selector);
   if (!element) throw new Error(`Mary UI is missing an element: ${selector}`);
   return element;
+}
+
+function createVoiceRope(canvas: HTMLCanvasElement): VoiceRope | null {
+  try {
+    return new VoiceRope(canvas);
+  } catch {
+    // Captioning still works without the decorative canvas.
+    return null;
+  }
 }
 
 function formatTime(timestamp: number): string {
@@ -152,7 +162,7 @@ function buildSettingsMarkup(): string {
         <header class="mary-settings__header">
           <div>
             <h2 class="mary-settings__title" id="mary-settings-title">Settings</h2>
-            <p class="mary-settings__subtitle" id="mary-settings-subtitle">Everything runs on this device.</p>
+            <p class="mary-settings__subtitle" id="mary-settings-subtitle">Audio never leaves this device.</p>
           </div>
           <button
             type="button"
@@ -315,14 +325,40 @@ function buildAppMarkup(): string {
     <div class="mary-app">
       <div class="mary-top">
         <header class="mary-header">
-          <div class="mary-brand">
-            <span class="mary-brand__mark" aria-hidden="true">${icons.wave}</span>
-            <h1 class="mary-brand__name">Mary</h1>
-          </div>
-          <div class="mary-status" data-status data-state="ready" role="status" aria-live="polite">
-            <span class="mary-status__dot" aria-hidden="true"></span>
-            <span class="mary-status__text" data-status-text>Ready</span>
-          </div>
+          <h1 class="mary-sr-only">Mary</h1>
+          <span class="mary-sr-only" data-status data-state="ready" role="status" aria-live="polite">
+            <span data-status-text>Ready</span>
+          </span>
+          <button
+            type="button"
+            class="mary-icon-button"
+            data-copy-captions
+            aria-label="Copy captions"
+            title="Copy captions"
+          >
+            ${icons.copy}
+          </button>
+          <button
+            type="button"
+            class="mary-icon-button"
+            data-save-captions
+            aria-label="Save captions as text"
+            title="Save captions as text"
+          >
+            ${icons.download}
+          </button>
+          <button
+            type="button"
+            class="mary-icon-button mary-translate"
+            role="switch"
+            aria-checked="false"
+            aria-label="Translate captions to Japanese: off"
+            data-translate-toggle
+            data-state="off"
+            title="Translate captions"
+          >
+            ${icons.translate}
+          </button>
           <button
             type="button"
             class="mary-icon-button"
@@ -333,7 +369,6 @@ function buildAppMarkup(): string {
             ${icons.settings}
           </button>
         </header>
-        <p class="mary-notice" data-notice hidden></p>
         <div
           class="mary-progress"
           data-app-progress
@@ -351,9 +386,7 @@ function buildAppMarkup(): string {
         <main class="mary-captions" data-captions tabindex="0" aria-label="Live captions">
           <div class="mary-captions__inner">
             <div class="mary-empty" data-empty>
-              <span class="mary-empty__icon" aria-hidden="true">${icons.mic}</span>
-              <p class="mary-empty__title" data-empty-title>Tap Start to caption English speech</p>
-              <p class="mary-empty__note">Audio never leaves this device.</p>
+              <p class="mary-empty__title">No captions yet</p>
             </div>
             <div class="mary-lines" data-lines></div>
             <article class="mary-caption mary-partial" data-partial data-empty="true">
@@ -376,26 +409,17 @@ function buildAppMarkup(): string {
       <footer class="mary-footer">
         <div class="mary-footer__inner">
           <div class="mary-controls">
-            <button type="button" class="mary-start" data-start-button aria-label="Start captioning">
-              <span class="mary-start__icon" data-start-icon aria-hidden="true">${icons.mic}</span>
-              <span class="mary-start__label" data-start-label>Start</span>
-            </button>
-            <button
-              type="button"
-              class="mary-translate"
-              role="switch"
-              aria-checked="false"
-              aria-label="Translate captions to Japanese: off"
-              data-translate-toggle
-              data-state="off"
-            >
-              <span class="mary-translate__label">${icons.translate}<span>Translate</span></span>
-              <span class="mary-translate__state" data-translate-state>Off</span>
-            </button>
+            <div class="mary-voice" data-voice data-state="idle">
+              <canvas class="mary-voice__canvas" data-voice-canvas aria-hidden="true"></canvas>
+              <button
+                type="button"
+                class="mary-voice__button"
+                data-start-button
+                aria-label="Start captioning"
+              ></button>
+            </div>
           </div>
-          <p class="mary-privacy">
-            ${icons.lock}<span>Audio never leaves this device.</span>
-          </p>
+          <p class="mary-notice" data-notice hidden></p>
         </div>
       </footer>
     </div>
@@ -477,14 +501,15 @@ export function createUI(root: HTMLElement, actions: UIActions): AppUI {
   const appProgress = query<HTMLElement>(root, '[data-app-progress]');
   const appProgressFill = query<HTMLElement>(root, '[data-app-progress-fill]');
   const startButton = query<HTMLButtonElement>(root, '[data-start-button]');
-  const startIcon = query<HTMLElement>(root, '[data-start-icon]');
-  const startLabel = query<HTMLElement>(root, '[data-start-label]');
+  const voiceEl = query<HTMLElement>(root, '[data-voice]');
+  const voiceCanvas = query<HTMLCanvasElement>(root, '[data-voice-canvas]');
+  const voiceRope = createVoiceRope(voiceCanvas);
   const translateToggle = query<HTMLButtonElement>(root, '[data-translate-toggle]');
-  const translateState = query<HTMLElement>(root, '[data-translate-state]');
+  const copyButton = query<HTMLButtonElement>(root, '[data-copy-captions]');
+  const saveButton = query<HTMLButtonElement>(root, '[data-save-captions]');
   const captionsEl = query<HTMLElement>(root, '[data-captions]');
   const linesEl = query<HTMLElement>(root, '[data-lines]');
   const emptyEl = query<HTMLElement>(root, '[data-empty]');
-  const emptyTitle = query<HTMLElement>(root, '[data-empty-title]');
   const partialEl = query<HTMLElement>(root, '[data-partial]');
   const partialTime = query<HTMLTimeElement>(root, '[data-partial-time]');
   const partialText = query<HTMLParagraphElement>(root, '[data-partial-text]');
@@ -613,17 +638,6 @@ export function createUI(root: HTMLElement, actions: UIActions): AppUI {
   function updateEmptyState(): void {
     const hasPartial = partialEl.dataset.empty === 'false';
     emptyEl.hidden = lineNodes.size > 0 || hasPartial;
-    if (emptyEl.hidden) return;
-
-    let title = 'Tap Start to caption English speech';
-    if (state.asrState === 'loading') {
-      title = 'Loading the speech model…';
-    } else if (state.asrState === 'listening') {
-      title = 'Listening for English speech…';
-    } else if (state.asrState === 'error') {
-      title = 'Captioning stopped';
-    }
-    if (emptyTitle.textContent !== title) emptyTitle.textContent = title;
   }
 
   function updateProgress(view: ProgressView, progress: DownloadProgress | null, label: string): void {
@@ -728,25 +742,39 @@ export function createUI(root: HTMLElement, actions: UIActions): AppUI {
     const listening = state.asrState === 'listening';
     const loading = state.asrState === 'loading';
     const canToggle = listening || loading;
-    const startMode = listening ? 'stop' : loading ? 'cancel' : 'start';
-    const startText = listening ? 'Stop' : loading ? 'Cancel' : 'Start';
+    const startAction = listening ? 'Stop' : loading ? 'Cancel' : 'Start';
     const startAria = listening
       ? 'Stop captioning'
       : loading
         ? 'Cancel loading the speech model'
         : 'Start captioning';
     const startTitle = !canToggle && !state.canStart && state.blockReason ? state.blockReason : '';
+    const voiceState: VoiceState =
+      state.asrState === 'idle' && !state.canStart && state.blockReason
+        ? 'blocked'
+        : state.asrState;
 
+    if (voiceEl.dataset.state !== voiceState) voiceEl.dataset.state = voiceState;
+    voiceRope?.setState(voiceState);
+    const voiceColor = getComputedStyle(document.documentElement)
+      .getPropertyValue(
+        voiceState === 'loading'
+          ? '--mary-warning'
+          : voiceState === 'error' || voiceState === 'blocked'
+            ? '--mary-error'
+            : voiceState === 'listening'
+              ? '--mary-accent'
+              : '--mary-muted',
+      )
+      .trim();
+    voiceRope?.setColor(voiceColor);
     startButton.disabled = !canToggle && !state.canStart;
-    if (startButton.dataset.mode !== startMode) {
-      startButton.dataset.mode = startMode;
-      startIcon.innerHTML = canToggle ? icons.stop : icons.mic;
-    }
-    if (startLabel.textContent !== startText) startLabel.textContent = startText;
     if (startButton.getAttribute('aria-label') !== startAria) {
       startButton.setAttribute('aria-label', startAria);
     }
-    if (startButton.title !== startTitle) startButton.title = startTitle;
+    if (startButton.title !== (startTitle || startAction)) {
+      startButton.title = startTitle || startAction;
+    }
 
     const translationOn = state.settings.translation;
     const translationDisplay =
@@ -773,11 +801,11 @@ export function createUI(root: HTMLElement, actions: UIActions): AppUI {
     if (translateToggle.getAttribute('aria-label') !== translationAria) {
       translateToggle.setAttribute('aria-label', translationAria);
     }
+    if (translateToggle.title !== translationAria) {
+      translateToggle.title = translationAria;
+    }
     if (translateToggle.dataset.state !== translationStateName) {
       translateToggle.dataset.state = translationStateName;
-    }
-    if (translateState.textContent !== translationDisplay) {
-      translateState.textContent = translationDisplay;
     }
 
     updateEmptyState();
@@ -1159,6 +1187,7 @@ export function createUI(root: HTMLElement, actions: UIActions): AppUI {
     destroyed = true;
 
     listenerController.abort();
+    voiceRope?.destroy();
 
     for (const timer of toastTimers) window.clearTimeout(timer);
     toastTimers.clear();
@@ -1203,6 +1232,8 @@ export function createUI(root: HTMLElement, actions: UIActions): AppUI {
 
   // Settings: close paths.
   settingsButton.addEventListener('click', openSettings, listenerOptions);
+  copyButton.addEventListener('click', () => actions.copyCaptions(), listenerOptions);
+  saveButton.addEventListener('click', () => actions.saveCaptions(), listenerOptions);
   closeButton.addEventListener('click', closeSettings, listenerOptions);
   dialogEl.addEventListener('cancel', onDialogCancel, listenerOptions);
   dialogEl.addEventListener('close', onDialogClose, listenerOptions);

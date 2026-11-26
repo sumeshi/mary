@@ -1,6 +1,7 @@
 import type {
   AppState,
   AsrModelId,
+  PartialSubtitle,
   Settings,
   SubtitleLine,
   UIActions,
@@ -32,6 +33,13 @@ function emptyModelStatus(): AppState['modelStatus'] {
   };
 }
 
+function transcriptFileName(date: Date): string {
+  const pad = (value: number): string => String(value).padStart(2, '0');
+  return `mary-captions-${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(
+    date.getDate(),
+  )}-${pad(date.getHours())}${pad(date.getMinutes())}.txt`;
+}
+
 export function createApp(root: HTMLElement): void {
   const store = new SubtitleStore();
   let settings = loadSettings();
@@ -39,6 +47,7 @@ export function createApp(root: HTMLElement): void {
   let engine: SpeechEngine | null = null;
   let translation: TranslationService | null = null;
   let translationErrorShown = false;
+  let currentPartial: PartialSubtitle | null = null;
 
   const state: AppState = {
     settings,
@@ -57,6 +66,12 @@ export function createApp(root: HTMLElement): void {
   const actions: UIActions = {
     toggleListening: () => {
       void toggleListening();
+    },
+    copyCaptions: () => {
+      void copyCaptions();
+    },
+    saveCaptions: () => {
+      saveCaptions();
     },
     setTranslationEnabled: (enabled) => {
       void setTranslationEnabled(enabled);
@@ -169,12 +184,9 @@ export function createApp(root: HTMLElement): void {
         if (next === 'listening') {
           void refreshStatus();
         }
-        if (next === 'idle') {
-          translation?.stop();
-          setState({ translationState: 'disabled', translationProgress: null });
-        }
       },
       onPartial: (partial) => {
+        currentPartial = partial;
         ui.setPartial(partial);
       },
       onFinal: (result) => {
@@ -202,10 +214,57 @@ export function createApp(root: HTMLElement): void {
       },
       onError: (message) => {
         setState({ asrState: 'error', asrDetail: message });
-        ui.toast(message, 'error');
       },
     });
     return engine;
+  }
+
+  function transcriptText(): string {
+    const entries = store.all().map((line) => {
+      const translation = line.translationState === 'done' ? line.translation?.trim() : '';
+      return translation ? `${line.text}\n${translation}` : line.text;
+    });
+
+    if (currentPartial && !store.get(currentPartial.id)) {
+      const partial = currentPartial.text.trim();
+      if (partial) entries.push(partial);
+    }
+
+    return entries.join('\n\n');
+  }
+
+  async function copyCaptions(): Promise<void> {
+    const text = transcriptText();
+    if (!text) {
+      ui.toast('There are no captions to copy.');
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(text);
+      ui.toast('Captions copied.');
+    } catch {
+      ui.toast('Could not copy captions.', 'error');
+    }
+  }
+
+  function saveCaptions(): void {
+    const text = transcriptText();
+    if (!text) {
+      ui.toast('There are no captions to save.');
+      return;
+    }
+
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = transcriptFileName(new Date());
+    document.body.append(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    ui.toast('Captions saved.');
   }
 
   async function toggleListening(): Promise<void> {
@@ -228,20 +287,11 @@ export function createApp(root: HTMLElement): void {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       setState({ asrState: 'error', asrDetail: message, asrProgress: null });
-      ui.toast(message, 'error');
     }
   }
 
   async function stopListening(): Promise<void> {
     await engine?.stop();
-    translation?.stop();
-    setState({
-      asrState: 'idle',
-      asrDetail: null,
-      asrProgress: null,
-      translationState: 'disabled',
-      translationProgress: null,
-    });
   }
 
   async function setTranslationEnabled(enabled: boolean): Promise<void> {
