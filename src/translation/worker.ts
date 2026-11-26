@@ -35,6 +35,11 @@ const scope = self as unknown as DedicatedWorkerGlobalScope;
 env.remotePathTemplate = `{model}/resolve/${TRANSLATION_MODEL_REVISION}/`;
 env.allowLocalModels = false;
 env.useBrowserCache = true;
+// Hugging Face returns 404 without CORS headers when the request carries a
+// *.workers.dev Referer. Omit the referrer for model downloads so the app
+// works from workers.dev as well as pages.dev and custom domains.
+env.fetch = (input, init) =>
+  fetch(input, { ...init, referrerPolicy: 'no-referrer' });
 env.backends.onnx.wasm!.numThreads = 1;
 env.backends.onnx.wasm!.proxy = false;
 env.backends.onnx.wasm!.wasmPaths = ortWasmPaths(import.meta.env.BASE_URL);
