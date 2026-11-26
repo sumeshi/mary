@@ -1,11 +1,18 @@
 import { cp, mkdir, readdir, rm } from 'node:fs/promises';
+import { realpathSync } from 'node:fs';
+import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const moonshineSource = join(root, 'node_modules', '@moonshine-ai', 'moonshine-wasm', 'dist');
 const moonshineTarget = join(root, 'public', 'moonshine');
-const ortSource = join(root, 'node_modules', 'onnxruntime-web', 'dist');
+// Resolve through Transformers.js so pnpm's isolated node_modules still finds
+// the ONNX Runtime build that matches the installed package.
+const transformersRequire = createRequire(
+  realpathSync(join(root, 'node_modules', '@huggingface', 'transformers', 'package.json')),
+);
+const ortSource = dirname(transformersRequire.resolve('onnxruntime-web'));
 const ortTarget = join(root, 'public', 'ort');
 
 async function copyMoonshine() {
